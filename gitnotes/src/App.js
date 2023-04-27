@@ -1,5 +1,10 @@
 import './App.css';
 import React, { useState } from 'react';
+import * as IPFS from 'ipfs-core'
+
+const ipfs = await IPFS.create()
+const { cid } = await ipfs.add('Hello world')
+console.info(cid)
 
 function App() {
 // Build a simple React project named “gitnotes” with the following specifications:
