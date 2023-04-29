@@ -1,51 +1,82 @@
+import { useState, useEffect } from 'react';
+import useIpfsFactory from './hooks/use-ipfs-factory.js'
+import useIpfs from './hooks/use-ipfs.js'
+import logo from './logo.svg';
+import ipfsLogo from './ipfs-logo.svg'
 import './App.css';
-import React, { useState } from 'react';
-import * as IPFS from 'ipfs-core'
-
-const ipfs = await IPFS.create()
-const { cid } = await ipfs.add('Hello world')
-console.info(cid)
-
+import UploadButton from './UploadButton.js';
+const Title = ({ children }) => {
+  return (
+    <h2 className='f5 ma0 pb2 aqua fw4 montserrat'>{children}</h2>
+  )
+}
+const IpfsId = ({keys, obj}) => {
+  if (!obj || !keys || keys.length === 0) return null
+  return (
+    <>
+      {keys?.map((key) => (
+        <div className='mb4' key={key}>
+          <Title>{key}</Title>
+          <div className='bg-white pa2 br2 truncate monospace' data-test={key}>{obj[key].toString()}</div>
+        </div>
+      ))}
+    </>
+  )
+}
 function App() {
-// Build a simple React project named “gitnotes” with the following specifications:
-// – Generate an alert if that same file (i.e. hash) has been uploaded
-// before stating “This note has already been uploaded”
-// • If the note has not been uploaded before:
-// – Upload the note to IPFS and display the IPFS hash (you can also
-// console.log the hash in the terminal as well)
-// • In a list, display:
-// – The name of the note
-// – The hash of the note on IPFS
-// • For every note in the list, the hash should be clickable and should open
-// an IPFS gateway link to that given note.
-// • If there are no notes display the text “No notes have been uploaded yet”
+  const { ipfs, ipfsInitError } = useIpfsFactory({ commands: ['id'] })
+  const id = useIpfs(ipfs, 'id')
+  const [version, setVersion] = useState(null)
 
+  useEffect(() => {
+    if (!ipfs) return
 
+    const getVersion = async () => {
+      const nodeId = await ipfs.version()
+      setVersion(nodeId)
+    }
 
-  const [selectedFile, setSelectedFile] = useState();
-	const changeHandler = (event) => {
-		setSelectedFile(event.target.files[0]);
-	};
-  const handleSubmission = () => {
-  }
+    getVersion()
+  }, [ipfs])
 
   return (
+    <div className='sans-serif'>
+      <header className='flex items-center pa3 bg-navy bb bw3 b--aqua'>
+        <a href='https://ipfs.io' title='home'>
+          <img alt='IPFS logo' src={ipfsLogo} style={{ height: 50 }} className='v-top' />
+        </a>
+        <img src={logo} className='react-logo' alt='logo' style={{ height: 50 }} />
 
-    <div className="App">
-   <div>
-   {/*• A button that shows “Choose File”. This button should: */}
-   {/* – If clicked, allow a user to select a .txt file from their computer */}
-			<input type="file" accept= ".txt" name="file" onChange={changeHandler} />
-			<div>
-			</div>
-      <div>
-      {/* // • A button that shows “Upload” to upload the given note to IPFS */}
-				<button>Upload</button>
-			</div>
-		</div>
-
+        <h1 className='flex-auto ma0 tr f3 fw2 montserrat aqua'>IPFS React</h1>
+      </header>
+      <main>
+        {ipfsInitError && (
+          <div className='bg-red pa3 mw7 center mv3 white'>
+            Error: {ipfsInitError.message || ipfsInitError}
+          </div>
+        )}
+        {(id || version) && (
+          <section className='bg-snow mw7 center mt5'>
+            <h1 className='f3 fw4 ma0 pv3 aqua montserrat tc' data-test='title'>
+              Connected to IPFS
+            </h1>
+            <div className='pa4'>
+              {id && <IpfsId obj={id} keys={['id', 'agentVersion']} />}
+              {version && <IpfsId obj={version} keys={['version']} />}
+              {ipfs && <UploadButton ipfs={ipfs} />}
+            </div>
+          </section>
+        )}
+      </main>
+      <footer className='react-header'>
+        <p>
+          Edit <code>src/App.js</code> and save to reload.
+        </p>
+        <a className='react-link' href='https://reactjs.org' target='_blank' rel='noopener noreferrer'>
+          Learn React
+        </a>
+      </footer>
     </div>
   );
 }
-
 export default App;
