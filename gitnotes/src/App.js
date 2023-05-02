@@ -1,82 +1,88 @@
-import { useState, useEffect } from 'react';
-import useIpfsFactory from './hooks/use-ipfs-factory.js'
-import useIpfs from './hooks/use-ipfs.js'
-import logo from './logo.svg';
-import ipfsLogo from './ipfs-logo.svg'
-import './App.css';
-import UploadButton from './UploadButton.js';
-const Title = ({ children }) => {
-  return (
-    <h2 className='f5 ma0 pb2 aqua fw4 montserrat'>{children}</h2>
-  )
-}
-const IpfsId = ({keys, obj}) => {
-  if (!obj || !keys || keys.length === 0) return null
-  return (
-    <>
-      {keys?.map((key) => (
-        <div className='mb4' key={key}>
-          <Title>{key}</Title>
-          <div className='bg-white pa2 br2 truncate monospace' data-test={key}>{obj[key].toString()}</div>
-        </div>
-      ))}
-    </>
-  )
-}
+import React, { useState, useEffect } from 'react';
+import { create } from 'ipfs-core';
+import all from 'it-all';
+import { concat } from 'uint8arrays/concat';
+import { toString } from 'uint8arrays/to-string';
+
 function App() {
-  const { ipfs, ipfsInitError } = useIpfsFactory({ commands: ['id'] })
-  const id = useIpfs(ipfs, 'id')
-  const [version, setVersion] = useState(null)
+  const [fileContents, setFileContents] = useState('');
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [uploadedNotes, setUploadedNotes] = useState([]);
+  const [node, setNode] = useState(null);
 
+  // Create an IPFS node on component mount
   useEffect(() => {
-    if (!ipfs) return
+    async function createIPFSNode() {
+      try {
+        const node = await create();
+        const version = await node.version();
+        console.log('IPFS Version:', version.version);
 
-    const getVersion = async () => {
-      const nodeId = await ipfs.version()
-      setVersion(nodeId)
+        setNode(node);
+      } catch (error) {
+        console.error('Failed to create IPFS node:', error);
+      }
     }
 
-    getVersion()
-  }, [ipfs])
+    createIPFSNode();
+  }, []);
+
+  // Update the selected file when the user selects a new file
+  const handleFileInput = (event) => {
+    setSelectedFile(event.target.files[0]);
+  };
+
+  // Upload the selected file to IPFS and update the uploaded notes
+  const handleFileUpload = async () => {
+    if (!selectedFile || !node) {
+      return;
+    }
+
+    try {
+      const file = await node.add({
+        path: selectedFile.name,
+        content: selectedFile,
+      });
+
+      console.log('Added file:', file.path, file.cid.toString());
+
+      const noteHash = file.cid.toString();
+
+      if (uploadedNotes.find((note) => note.hash === noteHash)) {
+        alert('This note has already been uploaded');
+        return;
+      }
+
+      const noteData = concat(await all(node.cat(file.cid)));
+      const noteLink = `https://ipfs.io/ipfs/${noteHash}`;
+
+      setUploadedNotes([...uploadedNotes, { hash: noteHash, link: noteLink }]);
+      setFileContents(toString(noteData));
+    } catch (error) {
+      console.error('Failed to upload file to IPFS:', error);
+    }
+  };
 
   return (
-    <div className='sans-serif'>
-      <header className='flex items-center pa3 bg-navy bb bw3 b--aqua'>
-        <a href='https://ipfs.io' title='home'>
-          <img alt='IPFS logo' src={ipfsLogo} style={{ height: 50 }} className='v-top' />
-        </a>
-        <img src={logo} className='react-logo' alt='logo' style={{ height: 50 }} />
-
-        <h1 className='flex-auto ma0 tr f3 fw2 montserrat aqua'>IPFS React</h1>
-      </header>
-      <main>
-        {ipfsInitError && (
-          <div className='bg-red pa3 mw7 center mv3 white'>
-            Error: {ipfsInitError.message || ipfsInitError}
-          </div>
-        )}
-        {(id || version) && (
-          <section className='bg-snow mw7 center mt5'>
-            <h1 className='f3 fw4 ma0 pv3 aqua montserrat tc' data-test='title'>
-              Connected to IPFS
-            </h1>
-            <div className='pa4'>
-              {id && <IpfsId obj={id} keys={['id', 'agentVersion']} />}
-              {version && <IpfsId obj={version} keys={['version']} />}
-              {ipfs && <UploadButton ipfs={ipfs} />}
-            </div>
-          </section>
-        )}
-      </main>
-      <footer className='react-header'>
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a className='react-link' href='https://reactjs.org' target='_blank' rel='noopener noreferrer'>
-          Learn React
-        </a>
-      </footer>
+    <div>
+      <p>File contents: {fileContents}</p>
+      <input type="file" onChange={handleFileInput} />
+      <button onClick={handleFileUpload}>Upload</button>
+      {uploadedNotes.length > 0 ? (
+        <ul>
+          {uploadedNotes.map(({ hash, link }) => (
+            <li key={hash}>
+              <a href={link} target="_blank" rel="noopener noreferrer">
+                {hash}
+              </a>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p>No notes have been uploaded yet</p>
+      )}
     </div>
   );
 }
+
 export default App;
