@@ -37,30 +37,36 @@ function App() {
     if (!selectedFile || !node) {
       return;
     }
-
-    try {
-      const file = await node.add({
-        path: selectedFile.name,
-        content: selectedFile,
-      });
-
-      console.log('Added file:', file.path, file.cid.toString());
-
-      const noteHash = file.cid.toString();
-
-      if (uploadedNotes.find((note) => note.hash === noteHash)) {
-        alert('This note has already been uploaded');
-        return;
+    if (selectedFile && selectedFile.name.endsWith(".txt")) {
+      setSelectedFile(selectedFile);
+      try {
+        const file = await node.add({
+          path: selectedFile.name,
+          content: selectedFile,
+        });
+  
+        console.log('Added file:', file.path, file.cid.toString());
+  
+        const noteHash = file.cid.toString();
+  
+        if (uploadedNotes.find((note) => note.hash === noteHash)) {
+          alert('This note has already been uploaded');
+          return;
+        }
+  
+        const noteData = concat(await all(node.cat(file.cid)));
+        const noteLink = `https://ipfs.io/ipfs/${noteHash}`;
+  
+        setUploadedNotes([...uploadedNotes, { hash: noteHash, link: noteLink }]);
+        setFileContents(toString(noteData));
+      } catch (error) {
+        console.error('Failed to upload file to IPFS:', error);
       }
-
-      const noteData = concat(await all(node.cat(file.cid)));
-      const noteLink = `https://ipfs.io/ipfs/${noteHash}`;
-
-      setUploadedNotes([...uploadedNotes, { hash: noteHash, link: noteLink }]);
-      setFileContents(toString(noteData));
-    } catch (error) {
-      console.error('Failed to upload file to IPFS:', error);
+    } else {
+      setSelectedFile(null);
+      alert("Please select a .txt file");
     }
+
   };
 
   return (
